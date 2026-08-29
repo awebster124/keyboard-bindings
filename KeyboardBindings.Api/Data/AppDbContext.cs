@@ -18,7 +18,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // A physical key appears at most once per keyboard.
             entity.HasIndex(m => new { m.KeyboardName, m.PhysicalCode }).IsUnique();
 
-            // Concurrency token column; the write path that stamps and checks it is added later.
+            // Optimistic concurrency: EF checks the original Version in the UPDATE's WHERE clause, so a row changed
+            // by another writer since our read updates 0 rows.
             entity.Property(m => m.Version).IsConcurrencyToken();
 
             // Seed identity mappings at migration time so the table is complete up front, with no seeding race.
@@ -50,4 +51,33 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     private static Guid DeterministicVersion(int keyboardIndex, byte code) =>
         new(keyboardIndex, 0, 0, [0, 0, 0, 0, 0, 0, 0, code]);
+
+    // Override the widest overloads: the parameterless forms delegate to these, so a direct SaveChanges(false)
+    // can't slip through unstamped.
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        StampVersions();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        StampVersions();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>
+    /// Stamps a fresh concurrency token on each inserted/updated row (SQLite has no server-generated rowversion).
+    /// The tracker keeps the original for the WHERE clause, so this only sets the new value.
+    /// </summary>
+    private void StampVersions()
+    {
+        foreach (var entry in ChangeTracker.Entries<KeyMapping>())
+        {
+            if (entry.State is EntityState.Added or EntityState.Modified)
+            {
+                entry.Entity.Version = Guid.NewGuid();
+            }
+        }
+    }
 }

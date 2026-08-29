@@ -12,7 +12,9 @@ builder.Services.AddProblemDetails();
 
 var connectionString = builder.Configuration.GetConnectionString("Default")
                        ?? "Data Source=keyboardbindings.db";
-builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite(connectionString)
+           .AddInterceptors(new SqlitePragmaInterceptor()));
 builder.Services.AddScoped<MappingService>();
 
 var app = builder.Build();
@@ -46,7 +48,7 @@ app.MapGet("/keyboards/{name}/mappings", async (string name, MappingService serv
 
 // Assign (validate + save) a set of key mappings for a keyboard.
 app.MapPut("/keyboards/{name}/mappings", async (
-    string name, AssignMappingsRequest request, MappingService service, CancellationToken ct) =>
+    string name, AssignMappingsRequest request, MappingService service, HttpResponse response, CancellationToken ct) =>
 {
     var result = await service.AssignMappingsAsync(name, request, ct);
     switch (result.Status)
@@ -59,6 +61,13 @@ app.MapPut("/keyboards/{name}/mappings", async (
             return Results.ValidationProblem(
                 new Dictionary<string, string[]> { ["mappings"] = result.Errors.ToArray() },
                 title: "Invalid key mappings");
+        case MappingStatus.WriteConflict:
+            // Transient contention — tell the client to retry.
+            response.Headers.RetryAfter = "1";
+            return Results.Problem(
+                statusCode: StatusCodes.Status503ServiceUnavailable,
+                title: "Write conflict",
+                detail: result.Errors.FirstOrDefault());
         default:
             return Results.Problem("Unexpected error.");
     }
