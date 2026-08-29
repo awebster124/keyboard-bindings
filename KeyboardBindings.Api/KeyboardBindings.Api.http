@@ -1,0 +1,26 @@
+@host = http://localhost:5251
+@keyboard = Apex%20Pro%20Gen%203
+
+### Get all key mappings for the keyboard
+GET {{host}}/keyboards/{{keyboard}}/mappings
+Accept: application/json
+
+### Assign key mappings (A -> Z, 4 -> 2)
+PUT {{host}}/keyboards/{{keyboard}}/mappings
+Content-Type: application/json
+
+{
+  "mappings": [
+    { "from": "0x04", "to": "0x1D" },
+    { "from": "0x21", "to": "0x1F" }
+  ]
+}
+
+### Reset the keyboard to defaults (no remaps)
+PUT {{host}}/keyboards/{{keyboard}}/mappings
+Content-Type: application/json
+
+{ "mappings": [] }
+
+### Health check
+GET {{host}}/health
