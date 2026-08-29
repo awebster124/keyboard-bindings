@@ -2,6 +2,7 @@ using KeyboardBindings.Api.Contracts;
 using KeyboardBindings.Api.Data;
 using KeyboardBindings.Api.Domain;
 using KeyboardBindings.Api.Hid;
+using KeyboardBindings.Api.Observability;
 using Microsoft.EntityFrameworkCore;
 
 namespace KeyboardBindings.Api.Services;
@@ -10,6 +11,9 @@ public class MappingService(
     AppDbContext db,
     ILogger<MappingService> logger)
 {
+    // Bounds the last-write-wins retry loop under sustained contention.
+    private const int MaxAssignAttempts = 5;
+
     /// <summary>
     /// Returns every key on the keyboard along with the key it currently emits. Keys are seeded as identity
     /// mappings at migration time, so the full keyboard is always present (remapped or not).
@@ -60,40 +64,82 @@ public class MappingService(
             return MappingResult.Invalid(errors);
         }
 
-        var rows = await db.KeyMappings
-            .Where(m => m.KeyboardName == canonical)
-            .ToListAsync(ct);
-        var byCode = rows.ToDictionary(r => r.PhysicalCode);
-
-        // The request is the complete non-identity set: reset every key to identity, then apply the remaps.
-        foreach (var row in rows)
+        // Last-write-wins: on a concurrency conflict, reload and reapply the request (deterministic, since it's a
+        // full replacement) so the latest write wins on fresh data rather than clobbering from a stale read.
+        for (var attempt = 1; ; attempt++)
         {
-            row.MappedCode = row.PhysicalCode;
-        }
-
-        foreach (var (from, to) in parsed)
-        {
-            if (byCode.TryGetValue(from, out var row))
+            // Drop stale tracked entities so the retry reloads fresh rows/tokens.
+            if (attempt > 1)
             {
-                row.MappedCode = to;
-                continue;
+                db.ChangeTracker.Clear();
             }
 
-            // Validated key with no persisted row — recreate it rather than fail; the read path tolerates it.
-            logger.LogWarning(
-                "Missing key mapping row for {Keyboard} key {PhysicalCode}; recreating it.",
-                canonical, from);
+            var rows = await db.KeyMappings
+                .Where(m => m.KeyboardName == canonical)
+                .ToListAsync(ct);
+            var byCode = rows.ToDictionary(r => r.PhysicalCode);
 
-            db.KeyMappings.Add(new KeyMapping
+            foreach (var row in rows)
             {
-                KeyboardName = canonical,
-                PhysicalCode = from,
-                MappedCode = to
-            });
-        }
+                row.MappedCode = row.PhysicalCode;
+            }
 
-        await db.SaveChangesAsync(ct);
-        return MappingResult.Ok();
+            foreach (var (from, to) in parsed)
+            {
+                if (byCode.TryGetValue(from, out var row))
+                {
+                    row.MappedCode = to;
+                    continue;
+                }
+
+                // Validated key with no persisted row — a data anomaly (e.g. a keyboard added without its seed
+                // migration). Recreate it rather than fail; the read path already tolerates it via identity.
+                logger.LogWarning(
+                    "Missing key mapping row for {Keyboard} key {PhysicalCode}; recreating it. "
+                    + "This usually means the keyboard was not seeded by a migration.",
+                    canonical, from);
+
+                var created = new KeyMapping
+                {
+                    KeyboardName = canonical,
+                    PhysicalCode = from,
+                    MappedCode = to
+                };
+                db.KeyMappings.Add(created);
+                byCode[from] = created;
+            }
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+                if (attempt > 1)
+                {
+                    logger.LogInformation(
+                        "Assign for {Keyboard} succeeded after {Attempts} attempt(s) following a write conflict (last-write-wins).",
+                        canonical, attempt);
+                }
+
+                return MappingResult.Ok();
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                // Record every conflict so silent retries don't hide contention.
+                MappingMetrics.RecordConflict(canonical);
+
+                if (attempt >= MaxAssignAttempts)
+                {
+                    logger.LogError(
+                        ex,
+                        "Abandoning assign for {Keyboard} after {Attempts} attempts due to sustained write contention.",
+                        canonical, attempt);
+                    return MappingResult.WriteConflict();
+                }
+
+                logger.LogWarning(
+                    "Write conflict assigning mappings for {Keyboard} on attempt {Attempt}; reloading and retrying (last-write-wins).",
+                    canonical, attempt);
+            }
+        }
     }
 
     private static (List<string> Errors, List<(byte From, byte To)> Parsed) Validate(
