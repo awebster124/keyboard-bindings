@@ -18,7 +18,8 @@ builder.Services.AddProblemDetails();
 // (e.g. a null/missing 'mappings' array or a null element) are rejected with a 400 at the boundary.
 builder.Services.AddValidation();
 
-// Connection string comes from configuration
+// NOTE: In a real deployment this would be supplied by an environment variable (or a secret
+// store), not committed to source. It lives in appsettings.json to keep local setup frictionless.
 var connectionString = builder.Configuration.GetConnectionString("Default")
                        ?? throw new InvalidOperationException("Connection string 'Default' is not configured.");
 builder.Services.AddDbContext<AppDbContext>(options =>
