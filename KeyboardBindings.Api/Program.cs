@@ -89,6 +89,11 @@ app.MapPut("/keyboards/{name}/mappings", async (
                 statusCode: StatusCodes.Status503ServiceUnavailable,
                 title: "Write conflict",
                 detail: result.Errors.FirstOrDefault());
+        case MappingStatus.UnexpectedError:
+            return Results.Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Unexpected error",
+                detail: result.Errors.FirstOrDefault());
         default:
             return Results.Problem("Unexpected error.");
     }

@@ -15,7 +15,13 @@ public enum MappingStatus
     /// Retry budget exhausted under sustained contention. Transient — surfaced as 503 + Retry-After (not 409:
     /// a full-replacement request has nothing to reconcile).
     /// </summary>
-    WriteConflict
+    WriteConflict,
+
+    /// <summary>
+    /// An unexpected error prevented the operation from completing — surfaced as a 500. Distinct from the known,
+    /// user-facing failures above; the cause is logged server-side rather than returned to the caller.
+    /// </summary>
+    UnexpectedError
 }
 
 public record MappingResult(MappingStatus Status, IReadOnlyList<string> Errors)
@@ -34,6 +40,11 @@ public record MappingResult(MappingStatus Status, IReadOnlyList<string> Errors)
     public static MappingResult WriteConflict() =>
         new(MappingStatus.WriteConflict,
             ["The keyboard mappings are being updated concurrently. Please retry."]);
+
+    // Generic message only: the actual exception is logged server-side, never surfaced to the caller.
+    public static MappingResult UnexpectedError() =>
+        new(MappingStatus.UnexpectedError,
+            ["An unexpected error occurred while saving the mappings. Please try again."]);
 }
 
 /// <summary>

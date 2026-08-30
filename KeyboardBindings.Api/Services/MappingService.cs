@@ -135,6 +135,14 @@ public class MappingService(
                         canonical, attempt);
                 }
             }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Anything other than a concurrency conflict is unexpected here, so don't retry: log the cause with
+                // context and return a controlled failure (the endpoint maps it to a 500) instead of letting an
+                // opaque exception escape. Cancellation is excluded so a cancelled request propagates as such.
+                logger.LogError(ex, "Unexpected error assigning mappings for {Keyboard}.", canonical);
+                return MappingResult.UnexpectedError();
+            }
         }
 
         // Every attempt hit a write conflict — give up and let the client retry.
