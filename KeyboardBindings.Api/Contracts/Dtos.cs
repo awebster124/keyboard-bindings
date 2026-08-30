@@ -11,7 +11,6 @@ public record RemapDto(string From, string To);
 /// <summary>
 /// The complete set of remappings for a keyboard. Any key not listed is identity, so an empty list resets it.
 /// The null-rejection rules are DataAnnotations so minimal-API validation enforces them at the boundary (400)
-/// before the handler runs; the service can then trust the shape of its input.
 /// </summary>
 public record AssignMappingsRequest(
     [property: Required(ErrorMessage = "A 'mappings' array is required.")]

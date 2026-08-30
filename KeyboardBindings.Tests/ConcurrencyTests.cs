@@ -1,6 +1,5 @@
 using KeyboardBindings.Api.Contracts;
 using KeyboardBindings.Api.Data;
-using KeyboardBindings.Api.Services;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;

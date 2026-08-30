@@ -1,8 +1,7 @@
 namespace KeyboardBindings.Api.Domain;
 
 /// <summary>
-/// The keyboards this service knows about; only these may be assigned or queried (case-insensitive, canonical
-/// casing preserved). A dependency-free domain leaf (like the HID catalog) that data and service layers depend on.
+/// The keyboards this service knows about; only these may be assigned or queried (case-insensitive, canonical casing preserved). 
 /// </summary>
 public static class SupportedKeyboards
 {
