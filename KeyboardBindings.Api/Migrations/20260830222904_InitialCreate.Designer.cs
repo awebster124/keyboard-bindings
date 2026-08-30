@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace KeyboardBindings.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260830161351_AddKeyboardNameMaxLength")]
-    partial class AddKeyboardNameMaxLength
+    [Migration("20260830222904_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
