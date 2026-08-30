@@ -27,7 +27,9 @@ public class MappingService(
             return MappingsResult.KeyboardNotFound();
         }
 
+        // Read-only path: skip change tracking so EF doesn't set up snapshots for rows we never mutate.
         var rows = await db.KeyMappings
+            .AsNoTracking()
             .Where(m => m.KeyboardName == canonical)
             .ToListAsync(ct);
 
@@ -64,6 +66,10 @@ public class MappingService(
             return MappingResult.Invalid(errors);
         }
 
+        // Only load rows this request might change: those currently remapped (to reset to identity) or explicitly
+        // targeted by the request. Identity rows we aren't touching don't need loading, tracking, or a Version check.
+        var fromCodes = parsed.Select(p => p.From).ToHashSet();
+
         // Last-write-wins: on a concurrency conflict, reload and reapply the request 
         // so the latest write wins on fresh data rather than clobbering from a stale read.
         DbUpdateConcurrencyException? lastConflict = null;
@@ -76,7 +82,8 @@ public class MappingService(
             }
 
             var rows = await db.KeyMappings
-                .Where(m => m.KeyboardName == canonical)
+                .Where(m => m.KeyboardName == canonical
+                            && (m.MappedCode != m.PhysicalCode || fromCodes.Contains(m.PhysicalCode)))
                 .ToListAsync(ct);
             var byCode = rows.ToDictionary(r => r.PhysicalCode);
 
