@@ -57,10 +57,10 @@ app.MapHealthChecks("/health");
 // Get all current key mappings for a keyboard (remapped or not).
 app.MapGet("/keyboards/{name}/mappings", async (string name, MappingService service, CancellationToken ct) =>
 {
-    var (status, response) = await service.GetMappingsAsync(name, ct);
-    return status switch
+    var result = await service.GetMappingsAsync(name, ct);
+    return result.Status switch
     {
-        MappingStatus.Success => Results.Ok(response),
+        MappingStatus.Success => Results.Ok(result.Response),
         MappingStatus.KeyboardNotFound => KeyboardNotFound(name),
         _ => Results.Problem("Unexpected error.")
     };

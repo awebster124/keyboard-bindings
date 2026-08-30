@@ -18,13 +18,13 @@ public class MappingService(
     /// Returns every key on the keyboard along with the key it currently emits. Keys are seeded as identity
     /// mappings at migration time, so the full keyboard is always present (remapped or not).
     /// </summary>
-    public async Task<(MappingStatus Status, KeyboardMappingsResponse? Response)> GetMappingsAsync(
+    public async Task<MappingsResult> GetMappingsAsync(
         string keyboardName, CancellationToken ct = default)
     {
         var canonical = SupportedKeyboards.Resolve(keyboardName);
         if (canonical is null)
         {
-            return (MappingStatus.KeyboardNotFound, null);
+            return MappingsResult.KeyboardNotFound();
         }
 
         var rows = await db.KeyMappings
@@ -42,7 +42,7 @@ public class MappingService(
             })
             .ToList();
 
-        return (MappingStatus.Success, new KeyboardMappingsResponse(canonical, mappings));
+        return MappingsResult.Ok(new KeyboardMappingsResponse(canonical, mappings));
     }
 
     /// <summary>
