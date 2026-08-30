@@ -95,3 +95,6 @@ static IResult KeyboardNotFound(string name) => Results.Problem(
     statusCode: StatusCodes.Status404NotFound,
     title: "Keyboard not found",
     detail: $"Unknown keyboard '{name}'.");
+
+// Exposed so the integration test project can bootstrap the app via WebApplicationFactory<Program>.
+public partial class Program;
