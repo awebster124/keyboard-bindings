@@ -14,6 +14,10 @@ builder.Services.AddOpenApi();
 // Standardize error responses as RFC 7807 problem+json.
 builder.Services.AddProblemDetails();
 
+// Validate minimal-API parameters via their DataAnnotations before the handler runs, so malformed requests
+// (e.g. a null/missing 'mappings' array or a null element) are rejected with a 400 at the boundary.
+builder.Services.AddValidation();
+
 var connectionString = builder.Configuration.GetConnectionString("Default")
                        ?? "Data Source=keyboardbindings.db";
 builder.Services.AddDbContext<AppDbContext>(options =>
