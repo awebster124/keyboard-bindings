@@ -57,6 +57,20 @@ public class MappingsApiTests : IClassFixture<ApiTestFactory>
     public async Task Put_NullMappingEntry_Returns400_NotServerError(string body)
     {
         // Regression: a null array element used to dereference into a NullReferenceException (500) rather than 400.
+        // Now rejected declaratively by minimal-API validation (NoNullElements) at the boundary.
+        var response = await _client.PutAsync(
+            $"/keyboards/{Uri.EscapeDataString(Keyboard)}/mappings",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("""{"mappings":null}""")]
+    [InlineData("{}")]
+    public async Task Put_NullOrMissingMappings_Returns400(string body)
+    {
+        // A null or omitted 'mappings' array is rejected by minimal-API validation (Required) at the boundary.
         var response = await _client.PutAsync(
             $"/keyboards/{Uri.EscapeDataString(Keyboard)}/mappings",
             new StringContent(body, Encoding.UTF8, "application/json"));
