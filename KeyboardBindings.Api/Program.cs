@@ -21,6 +21,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
            .AddInterceptors(new SqlitePragmaInterceptor()));
 builder.Services.AddScoped<MappingService>();
 
+// Liveness/readiness: verifies the app can reach the SQLite database.
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>();
+
 var app = builder.Build();
 
 // Apply pending migrations on startup (they also carry the seed data) so the app is runnable out of the box.
@@ -41,6 +45,8 @@ else
 
 app.UseHttpsRedirection();
 app.UseSecurityHeaders();
+
+app.MapHealthChecks("/health");
 
 // Get all current key mappings for a keyboard (remapped or not).
 app.MapGet("/keyboards/{name}/mappings", async (string name, MappingService service, CancellationToken ct) =>
