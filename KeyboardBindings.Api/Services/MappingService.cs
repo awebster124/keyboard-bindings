@@ -11,7 +11,7 @@ public class MappingService(
     AppDbContext db,
     ILogger<MappingService> logger)
 {
-    // Bounds the last-write-wins retry loop under sustained contention.
+    // Limits the last-write-wins retry loop
     private const int MaxAssignAttempts = 5;
 
     /// <summary>
@@ -64,9 +64,10 @@ public class MappingService(
             return MappingResult.Invalid(errors);
         }
 
-        // Last-write-wins: on a concurrency conflict, reload and reapply the request (deterministic, since it's a
-        // full replacement) so the latest write wins on fresh data rather than clobbering from a stale read.
-        for (var attempt = 1; ; attempt++)
+        // Last-write-wins: on a concurrency conflict, reload and reapply the request 
+        // so the latest write wins on fresh data rather than clobbering from a stale read.
+        DbUpdateConcurrencyException? lastConflict = null;
+        for (var attempt = 1; attempt <= MaxAssignAttempts; attempt++)
         {
             // Drop stale tracked entities so the retry reloads fresh rows/tokens.
             if (attempt > 1)
@@ -125,21 +126,23 @@ public class MappingService(
             {
                 // Record every conflict so silent retries don't hide contention.
                 MappingMetrics.RecordConflict(canonical);
+                lastConflict = ex;
 
-                if (attempt >= MaxAssignAttempts)
+                if (attempt < MaxAssignAttempts)
                 {
-                    logger.LogError(
-                        ex,
-                        "Abandoning assign for {Keyboard} after {Attempts} attempts due to sustained write contention.",
+                    logger.LogWarning(
+                        "Write conflict assigning mappings for {Keyboard} on attempt {Attempt}; reloading and retrying (last-write-wins).",
                         canonical, attempt);
-                    return MappingResult.WriteConflict();
                 }
-
-                logger.LogWarning(
-                    "Write conflict assigning mappings for {Keyboard} on attempt {Attempt}; reloading and retrying (last-write-wins).",
-                    canonical, attempt);
             }
         }
+
+        // Every attempt hit a write conflict — give up and let the client retry.
+        logger.LogError(
+            lastConflict,
+            "Abandoning assign for {Keyboard} after {Attempts} attempts due to sustained write contention.",
+            canonical, MaxAssignAttempts);
+        return MappingResult.WriteConflict();
     }
 
     private static (List<string> Errors, List<(byte From, byte To)> Parsed) Validate(
