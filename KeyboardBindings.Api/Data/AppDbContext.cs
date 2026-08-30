@@ -6,6 +6,9 @@ namespace KeyboardBindings.Api.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
+    /// <summary>Maximum stored length of <see cref="KeyMapping.KeyboardName"/>; bounded at the database by a CHECK constraint.</summary>
+    public const int KeyboardNameMaxLength = 100;
+
     public DbSet<KeyMapping> KeyMappings => Set<KeyMapping>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -13,7 +16,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<KeyMapping>(entity =>
         {
             entity.HasKey(m => m.Id);
-            entity.Property(m => m.KeyboardName).IsRequired();
+
+            // Keyboard names come from the SupportedKeyboards whitelist (longest today is 14 chars), so 100 is a
+            // generous ceiling for any real product name while keeping the column bounded rather than unlimited TEXT.
+            // SQLite ignores column-length declarations, so HasMaxLength alone is only model metadata; the CHECK
+            // constraint below is what actually bounds the stored value at the database.
+            entity.Property(m => m.KeyboardName).IsRequired().HasMaxLength(KeyboardNameMaxLength);
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_KeyMappings_KeyboardName_MaxLength",
+                $"length(\"KeyboardName\") <= {KeyboardNameMaxLength}"));
 
             // A physical key appears at most once per keyboard.
             entity.HasIndex(m => new { m.KeyboardName, m.PhysicalCode }).IsUnique();
