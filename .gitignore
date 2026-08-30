@@ -494,3 +494,5 @@ design-time.db-wal
 # Test coverage output
 [Tt]est[Rr]esults/
 coverage.cobertura.xml
+.vscode/tasks.json
+.vscode/launch.json
