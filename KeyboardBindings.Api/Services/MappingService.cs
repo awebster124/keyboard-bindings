@@ -7,10 +7,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KeyboardBindings.Api.Services;
 
-public class MappingService(
-    AppDbContext db,
-    ILogger<MappingService> logger)
+public class MappingService
 {
+    private readonly AppDbContext _db;
+    private readonly ILogger<MappingService> _logger;
+
+    public MappingService(AppDbContext db, ILogger<MappingService> logger)
+    {
+        _db = db;
+        _logger = logger;
+    }
+
     // Limits the last-write-wins retry loop
     private const int MaxAssignAttempts = 5;
 
@@ -28,7 +35,7 @@ public class MappingService(
         }
 
         // Read-only path: skip change tracking so EF doesn't set up snapshots for rows we never mutate.
-        var rows = await db.KeyMappings
+        var rows = await _db.KeyMappings
             .AsNoTracking()
             .Where(m => m.KeyboardName == canonical)
             .ToListAsync(ct);
@@ -78,10 +85,10 @@ public class MappingService(
             // Drop stale tracked entities so the retry reloads fresh rows/tokens.
             if (attempt > 1)
             {
-                db.ChangeTracker.Clear();
+                _db.ChangeTracker.Clear();
             }
 
-            var rows = await db.KeyMappings
+            var rows = await _db.KeyMappings
                 .Where(m => m.KeyboardName == canonical
                             && (m.MappedCode != m.PhysicalCode || fromCodes.Contains(m.PhysicalCode)))
                 .ToListAsync(ct);
@@ -102,7 +109,7 @@ public class MappingService(
 
                 // Validated key with no persisted row — a data anomaly (e.g. a keyboard added without its seed
                 // migration). Recreate it rather than fail; the read path already tolerates it via identity.
-                logger.LogWarning(
+                _logger.LogWarning(
                     "Missing key mapping row for {Keyboard} key {PhysicalCode}; recreating it. "
                     + "This usually means the keyboard was not seeded by a migration.",
                     canonical, from);
@@ -113,16 +120,16 @@ public class MappingService(
                     PhysicalCode = from,
                     MappedCode = to
                 };
-                db.KeyMappings.Add(created);
+                _db.KeyMappings.Add(created);
                 byCode[from] = created;
             }
 
             try
             {
-                await db.SaveChangesAsync(ct);
+                await _db.SaveChangesAsync(ct);
                 if (attempt > 1)
                 {
-                    logger.LogInformation(
+                    _logger.LogInformation(
                         "Assign for {Keyboard} succeeded after {Attempts} attempt(s) following a write conflict (last-write-wins).",
                         canonical, attempt);
                 }
@@ -137,7 +144,7 @@ public class MappingService(
 
                 if (attempt < MaxAssignAttempts)
                 {
-                    logger.LogWarning(
+                    _logger.LogWarning(
                         "Write conflict assigning mappings for {Keyboard} on attempt {Attempt}; reloading and retrying (last-write-wins).",
                         canonical, attempt);
                 }
@@ -147,13 +154,13 @@ public class MappingService(
                 // Anything other than a concurrency conflict is unexpected here, so don't retry: log the cause with
                 // context and return a controlled failure (the endpoint maps it to a 500) instead of letting an
                 // opaque exception escape. Cancellation is excluded so a cancelled request propagates as such.
-                logger.LogError(ex, "Unexpected error assigning mappings for {Keyboard}.", canonical);
+                _logger.LogError(ex, "Unexpected error assigning mappings for {Keyboard}.", canonical);
                 return MappingResult.UnexpectedError();
             }
         }
 
         // Every attempt hit a write conflict — give up and let the client retry.
-        logger.LogError(
+        _logger.LogError(
             lastConflict,
             "Abandoning assign for {Keyboard} after {Attempts} attempts due to sustained write contention.",
             canonical, MaxAssignAttempts);
