@@ -18,8 +18,9 @@ builder.Services.AddProblemDetails();
 // (e.g. a null/missing 'mappings' array or a null element) are rejected with a 400 at the boundary.
 builder.Services.AddValidation();
 
+// Connection string comes from configuration
 var connectionString = builder.Configuration.GetConnectionString("Default")
-                       ?? "Data Source=keyboardbindings.db";
+                       ?? throw new InvalidOperationException("Connection string 'Default' is not configured.");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString)
            .AddInterceptors(new SqlitePragmaInterceptor()));
