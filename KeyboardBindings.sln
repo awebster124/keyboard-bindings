@@ -1,9 +1,11 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KeyboardBindings.Api", "KeyboardBindings.Api\KeyboardBindings.Api.csproj", "{73ECBE91-F980-4447-A06F-573C2948D9C2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KeyboardBindings.Tests", "KeyboardBindings.Tests\KeyboardBindings.Tests.csproj", "{13FAF84B-ABDF-4AD9-B69C-C6FC69B195D6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +29,18 @@ Global
 		{73ECBE91-F980-4447-A06F-573C2948D9C2}.Release|x64.Build.0 = Release|Any CPU
 		{73ECBE91-F980-4447-A06F-573C2948D9C2}.Release|x86.ActiveCfg = Release|Any CPU
 		{73ECBE91-F980-4447-A06F-573C2948D9C2}.Release|x86.Build.0 = Release|Any CPU
+		{13FAF84B-ABDF-4AD9-B69C-C6FC69B195D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{13FAF84B-ABDF-4AD9-B69C-C6FC69B195D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{13FAF84B-ABDF-4AD9-B69C-C6FC69B195D6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{13FAF84B-ABDF-4AD9-B69C-C6FC69B195D6}.Debug|x64.Build.0 = Debug|Any CPU
+		{13FAF84B-ABDF-4AD9-B69C-C6FC69B195D6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{13FAF84B-ABDF-4AD9-B69C-C6FC69B195D6}.Debug|x86.Build.0 = Debug|Any CPU
+		{13FAF84B-ABDF-4AD9-B69C-C6FC69B195D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{13FAF84B-ABDF-4AD9-B69C-C6FC69B195D6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{13FAF84B-ABDF-4AD9-B69C-C6FC69B195D6}.Release|x64.ActiveCfg = Release|Any CPU
+		{13FAF84B-ABDF-4AD9-B69C-C6FC69B195D6}.Release|x64.Build.0 = Release|Any CPU
+		{13FAF84B-ABDF-4AD9-B69C-C6FC69B195D6}.Release|x86.ActiveCfg = Release|Any CPU
+		{13FAF84B-ABDF-4AD9-B69C-C6FC69B195D6}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
