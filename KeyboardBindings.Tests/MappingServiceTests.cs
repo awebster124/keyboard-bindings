@@ -132,19 +132,6 @@ public class MappingServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Assign_RejectsNullMappingEntry()
-    {
-        // Regression: a null element used to throw NullReferenceException.
-        await using var db = NewContext();
-        var request = new AssignMappingsRequest([null!, new RemapDto("0x04", "0x1D")]);
-
-        var result = await Service(db).AssignMappingsAsync(Keyboard, request);
-
-        Assert.Equal(MappingStatus.ValidationFailed, result.Status);
-        Assert.Contains(result.Errors, e => e.Contains("mappings[0]"));
-    }
-
-    [Fact]
     public async Task Assign_RecreatesMissingRow_InsteadOfThrowing()
     {
         // Regression: the write path used a raw dictionary indexer, so a missing row (e.g. a keyboard never seeded

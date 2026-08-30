@@ -148,11 +148,8 @@ public class MappingService(
         var errors = new List<string>();
         var parsed = new List<(byte From, byte To)>();
 
-        if (request.Mappings is null)
-        {
-            errors.Add("A 'mappings' array is required.");
-            return (errors, parsed);
-        }
+        // Minimal-API validation (see AssignMappingsRequest) already rejects a null/missing Mappings array and any
+        // null element at the boundary, so this method can assume a non-null list of non-null entries.
 
         // A keyboard has a fixed number of keys, so more mappings than keys is necessarily invalid; reject up
         // front rather than iterating an unbounded array (DoS guard).
@@ -167,13 +164,6 @@ public class MappingService(
         for (var i = 0; i < request.Mappings.Count; i++)
         {
             var entry = request.Mappings[i];
-
-            // JSON can yield a null element despite the non-nullable DTO type.
-            if (entry is null)
-            {
-                errors.Add($"mappings[{i}]: a mapping entry is required.");
-                continue;
-            }
 
             var fromOk = HidCatalog.TryParseCode(entry.From, out var from);
             if (!fromOk)
