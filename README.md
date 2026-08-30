@@ -1,8 +1,9 @@
 # Keyboard Key Remapping Service
 
-A small ASP.NET Core service that stores and serves key remappings for the
-**Apex Pro Gen 3** keyboard. Keys are identified by their USB HID usage codes
-(Usage Page 0x07, per the USB HID Usage Tables spec).
+A small ASP.NET Core service that stores and serves key remappings, with keys
+identified by their USB HID usage codes (Usage Page 0x07, per the USB HID Usage
+Tables spec). It currently supports the **Apex Pro Gen 3** and is built to extend to
+other keyboards — see [Adding a keyboard](#adding-a-keyboard).
 
 ## Stack
 
@@ -111,8 +112,7 @@ Validation failures are `ValidationProblemDetails` with messages grouped under `
 - **Concurrency is last-write-wins.** Each row carries an optimistic-concurrency
   token stamped on every save. On a conflict the service reloads and reapplies the
   request (safe, since it's a full replacement); retries are bounded, and sustained
-  contention returns **503 + `Retry-After`**. A 409 would be redundant — a
-  full-replacement PUT has nothing to reconcile, so the retry belongs on the server.
+  contention returns **503 + `Retry-After`**.
   Every conflict increments a counter (`MappingMetrics`, via `dotnet-counters`).
   SQLite runs in **WAL** mode with a `busy_timeout`, so readers don't block the
   writer and a writer waits briefly instead of failing with `SQLITE_BUSY`.
@@ -125,10 +125,9 @@ Validation failures are `ValidationProblemDetails` with messages grouped under `
 - **Bounded payloads** — 64 KB body cap; `mappings` rejected above the key count.
 - **Transport & headers** — HTTPS redirect always; HSTS outside Development;
   `X-Content-Type-Options: nosniff` on every response.
-- **No CORS** (the client is desktop software, not a browser); **errors don't leak
-  internals** (generic 500 in Production).
-- **No auth — deliberately deferred.** Anyone who can reach the service can read or
-  overwrite any keyboard's mappings; the natural next step (bearer tokens / OIDC)
+- **No CORS**; **errors don't leak internals** (generic 500 in Production).
+- **No auth — deferred** — Anyone who can reach the service can read or
+  overwrite any keyboard's mappings. Next steps (bearer tokens / OIDC)
   would scope mappings per user.
 
 ## Adding a keyboard
@@ -149,5 +148,7 @@ dotnet test
 Covers HID parsing; service logic against real SQLite (remap, full-replace,
 validation, case-insensitive names, missing-row recovery); concurrency (conflict
 detection and last-write-wins); and the HTTP endpoints end-to-end via
-`WebApplicationFactory`. Tests never touch the real database — unit tests use an
+`WebApplicationFactory`. 
+
+Tests never touch the real database — unit tests use an
 in-memory SQLite connection, integration tests a throwaway temp file.
