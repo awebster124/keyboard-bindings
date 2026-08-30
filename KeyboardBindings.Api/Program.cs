@@ -1,9 +1,13 @@
 using KeyboardBindings.Api.Contracts;
 using KeyboardBindings.Api.Data;
+using KeyboardBindings.Api.Http;
 using KeyboardBindings.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Payloads are small; cap the body size to shrink the DoS surface (default ~30 MB).
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 64 * 1024);
 
 builder.Services.AddOpenApi();
 
@@ -16,6 +20,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString)
            .AddInterceptors(new SqlitePragmaInterceptor()));
 builder.Services.AddScoped<MappingService>();
+
+// Liveness/readiness: verifies the app can reach the SQLite database.
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>();
 
 var app = builder.Build();
 
@@ -30,8 +38,15 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+else
+{
+    app.UseHsts();
+}
 
 app.UseHttpsRedirection();
+app.UseSecurityHeaders();
+
+app.MapHealthChecks("/health");
 
 // Get all current key mappings for a keyboard (remapped or not).
 app.MapGet("/keyboards/{name}/mappings", async (string name, MappingService service, CancellationToken ct) =>
