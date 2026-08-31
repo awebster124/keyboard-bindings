@@ -11,8 +11,6 @@ other keyboards — see [Adding a keyboard](#adding-a-keyboard).
 - **SQLite** persistence via **Entity Framework Core**
 - **xUnit** + `Microsoft.AspNetCore.Mvc.Testing` for unit and integration tests
 
-All dependencies are Microsoft-owned and free.
-
 ## Layout
 
 ```
@@ -43,6 +41,12 @@ every supported keyboard with an identity mapping for each key. The SQLite datab
 automatically and persists between runs. OpenAPI is served at `/openapi/v1.json` in
 Development.
 
+The default `http` profile has no HTTPS URL, so redirection no-ops with a
+`Failed to determine the https port` warning; add `--launch-profile https` to exercise it.
+
+Migrating on startup, like the connection string in `appsettings.json`, is a deliberate
+local-setup concession. 
+
 Schema changes use the EF Core CLI (`dotnet tool install --global dotnet-ef`):
 
 ```bash
@@ -62,12 +66,16 @@ Returns every key with the key it currently emits (remapped or not).
 {
   "keyboard": "Apex Pro Gen 3",
   "mappings": [
-    { "physicalKey": { "code": 4,  "hex": "0x04", "name": "A" },
-      "mappedKey":   { "code": 29, "hex": "0x1D", "name": "Z" },
-      "isRemapped": true },
-    { "physicalKey": { "code": 5,  "hex": "0x05", "name": "B" },
-      "mappedKey":   { "code": 5,  "hex": "0x05", "name": "B" },
-      "isRemapped": false }
+    {
+      "physicalKey": { "code": 4, "hex": "0x04", "name": "A" },
+      "mappedKey": { "code": 29, "hex": "0x1D", "name": "Z" },
+      "isRemapped": true
+    },
+    {
+      "physicalKey": { "code": 5, "hex": "0x05", "name": "B" },
+      "mappedKey": { "code": 5, "hex": "0x05", "name": "B" },
+      "isRemapped": false
+    }
   ]
 }
 ```
@@ -76,13 +84,13 @@ Returns every key with the key it currently emits (remapped or not).
 
 Saves the **complete** set of non-identity remaps: any key not listed is reset to
 emit itself, so an empty list restores defaults. `from`/`to` accept hex (`"0x04"`)
-or decimal (`"4"`).
+or decimal (`"4"`). The example below maps A → Z and 4 → 2.
 
 ```json
 {
   "mappings": [
-    { "from": "0x04", "to": "0x1D" },   // A -> Z
-    { "from": "0x21", "to": "0x1F" }    // 4 -> 2
+    { "from": "0x04", "to": "0x1D" },
+    { "from": "0x21", "to": "0x1F" }
   ]
 }
 ```
@@ -92,6 +100,7 @@ or decimal (`"4"`).
 | `204 No Content` | Saved |
 | `400 Bad Request` | Invalid mappings (unknown/duplicate key, null or missing entry, over cap) |
 | `404 Not Found` | Unsupported keyboard |
+| `500 Internal Server Error` | Unexpected failure — logged server-side, not returned |
 | `503 Service Unavailable` | Sustained write contention — retry |
 
 Validation failures are `ValidationProblemDetails` with messages grouped under `mappings`.
@@ -123,8 +132,8 @@ Validation failures are `ValidationProblemDetails` with messages grouped under `
   allowlist; key codes parsed to `byte`; all DB access via EF Core LINQ; DTOs mapped
   explicitly (no mass-assignment).
 - **Bounded payloads** — 64 KB body cap; `mappings` rejected above the key count.
-- **Transport & headers** — HTTPS redirect always; HSTS outside Development;
-  `X-Content-Type-Options: nosniff` on every response.
+- **Transport & headers** — HTTPS redirection (a no-op locally, see [Running](#running));
+  HSTS outside Development; `X-Content-Type-Options: nosniff` on every response.
 - **No CORS**; **errors don't leak internals** (generic 500 in Production).
 - **No auth — deferred** — Anyone who can reach the service can read or
   overwrite any keyboard's mappings. Next steps (bearer tokens / OIDC)
